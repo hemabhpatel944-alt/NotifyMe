@@ -1,0 +1,291 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.email is string && data.email.size() <= 200 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+             data.themeMode in ['dark', 'light'] &&
+             data.pushEnabled is bool &&
+             data.notifyOnCompleted is bool &&
+             data.notifyOnFailed is bool &&
+             data.notifyOnProgress is bool &&
+             data.notifyOnInputRequired is bool &&
+             data.notifyOnAgentConnected is bool &&
+             data.notifyOnAgentDisconnected is bool &&
+             data.notifyOnSystemAlerts is bool &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500)) &&
+             (!('fcmTokenStatus' in data) || (data.fcmTokenStatus is string && data.fcmTokenStatus.size() <= 200));
+    }
+
+    function isValidAgent(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.type in ['antigravity', 'claude_code', 'codex', 'cursor', 'custom'] &&
+             data.status in ['connected', 'disconnected', 'revoked'] &&
+             data.totalTasks is int && data.totalTasks >= 0 &&
+             data.completedTasks is int && data.completedTasks >= 0 &&
+             data.failedTasks is int && data.failedTasks >= 0 &&
+             data.credentialPrefix is string && data.credentialPrefix.size() >= 4 && data.credentialPrefix.size() <= 32 &&
+             data.credentialHash is string && data.credentialHash.size() == 64 &&
+             (!('metadataSummary' in data) || (data.metadataSummary is string && data.metadataSummary.size() <= 500)) &&
+             (!('lastSeenAt' in data) || isValidTimestamp(data.lastSeenAt)) &&
+             (!('credentialRotatedAt' in data) || isValidTimestamp(data.credentialRotatedAt));
+    }
+
+    function isValidAgentTask(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.agentId is string && isValidId(data.agentId) &&
+             data.agentName is string && data.agentName.size() >= 1 && data.agentName.size() <= 80 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+             data.project is string && data.project.size() >= 1 && data.project.size() <= 120 &&
+             data.status in ['pending', 'running', 'completed', 'failed', 'waiting_for_input', 'cancelled'] &&
+             data.progress is int && data.progress >= 0 && data.progress <= 100 &&
+             (!('summary' in data) || (data.summary is string && data.summary.size() <= 2000)) &&
+             (!('error' in data) || (data.error is string && data.error.size() <= 2000)) &&
+             (!('pendingQuestion' in data) || (data.pendingQuestion is string && data.pendingQuestion.size() <= 500)) &&
+             (!('pendingContext' in data) || (data.pendingContext is string && data.pendingContext.size() <= 1500)) &&
+             (!('pendingOptions' in data) || (data.pendingOptions is list && data.pendingOptions.size() <= 10 && (data.pendingOptions.size() == 0 || data.pendingOptions[0] is string))) &&
+             (!('userResponse' in data) || (data.userResponse is string && data.userResponse.size() <= 1000)) &&
+             (!('completedAt' in data) || isValidTimestamp(data.completedAt));
+    }
+
+    function isValidAgentEvent(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.agentId is string && isValidId(data.agentId) &&
+             data.agentName is string && data.agentName.size() >= 1 && data.agentName.size() <= 80 &&
+             data.eventType in [
+               'task_started',
+               'task_progress',
+               'task_completed',
+               'task_failed',
+               'user_input_requested',
+               'user_input_responded',
+               'agent_connected',
+               'agent_disconnected',
+               'agent_registered',
+               'credential_rotated',
+               'notification_dispatched'
+             ] &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 2000 &&
+             data.idempotencyKey is string && data.idempotencyKey.size() >= 1 && data.idempotencyKey.size() <= 128 &&
+             data.deliveryStatus in ['delivered', 'suppressed', 'failed', 'recorded'] &&
+             (!('taskId' in data) || (data.taskId is string && isValidId(data.taskId))) &&
+             (!('project' in data) || (data.project is string && data.project.size() <= 120));
+    }
+
+    function isValidAppNotification(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 1000 &&
+             data.category in [
+               'task_completed',
+               'task_failed',
+               'task_progress',
+               'user_input_required',
+               'agent_connected',
+               'agent_disconnected',
+               'system_alert'
+             ] &&
+             data.isRead is bool &&
+             (!('taskId' in data) || (data.taskId is string && isValidId(data.taskId))) &&
+             (!('eventId' in data) || (data.eventId is string && isValidId(data.eventId))) &&
+             (!('agentName' in data) || (data.agentName is string && data.agentName.size() <= 80)) &&
+             (!('project' in data) || (data.project is string && data.project.size() <= 120)) &&
+             (!('readAt' in data) || isValidTimestamp(data.readAt));
+    }
+
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'email', 'displayName', 'themeMode', 'pushEnabled',
+                         'notifyOnCompleted', 'notifyOnFailed', 'notifyOnProgress',
+                         'notifyOnInputRequired', 'notifyOnAgentConnected',
+                         'notifyOnAgentDisconnected', 'notifyOnSystemAlerts',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'email', 'displayName', 'photoUrl', 'themeMode', 'pushEnabled',
+                         'notifyOnCompleted', 'notifyOnFailed', 'notifyOnProgress',
+                         'notifyOnInputRequired', 'notifyOnAgentConnected',
+                         'notifyOnAgentDisconnected', 'notifyOnSystemAlerts',
+                         'fcmTokenStatus', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidTimestamp(incoming().createdAt) &&
+                       isValidTimestamp(incoming().updatedAt) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidTimestamp(incoming().updatedAt) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'photoUrl', 'themeMode', 'pushEnabled',
+                         'notifyOnCompleted', 'notifyOnFailed', 'notifyOnProgress',
+                         'notifyOnInputRequired', 'notifyOnAgentConnected',
+                         'notifyOnAgentDisconnected', 'notifyOnSystemAlerts',
+                         'fcmTokenStatus', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /agents/{agentId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(agentId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'type', 'status', 'totalTasks',
+                           'completedTasks', 'failedTasks', 'credentialPrefix',
+                           'credentialHash', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'type', 'status', 'totalTasks',
+                           'completedTasks', 'failedTasks', 'credentialPrefix',
+                           'credentialHash', 'metadataSummary', 'lastSeenAt',
+                           'credentialRotatedAt', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidAgent(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(agentId) &&
+                         isValidAgent(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().type == existing().type &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'status', 'totalTasks', 'completedTasks',
+                           'failedTasks', 'credentialPrefix', 'credentialHash',
+                           'metadataSummary', 'lastSeenAt', 'credentialRotatedAt',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(agentId);
+      }
+
+      match /tasks/{taskId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'agentId', 'agentName', 'title', 'project',
+                           'status', 'progress', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'agentId', 'agentName', 'title', 'project',
+                           'status', 'progress', 'summary', 'error',
+                           'pendingQuestion', 'pendingContext', 'pendingOptions',
+                           'userResponse', 'createdAt', 'updatedAt', 'completedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidAgentTask(incoming()) &&
+                         exists(/databases/$(database)/documents/users/$(userId)/agents/$(incoming().agentId));
+
+        allow update: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         isValidAgentTask(incoming()) &&
+                         !(existing().status in ['completed', 'failed', 'cancelled']) &&
+                         incoming().userId == existing().userId &&
+                         incoming().agentId == existing().agentId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'agentName', 'title', 'project', 'status', 'progress',
+                           'summary', 'error', 'pendingQuestion', 'pendingContext',
+                           'pendingOptions', 'userResponse', 'completedAt', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /events/{eventId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(eventId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'agentId', 'agentName', 'eventType', 'title',
+                           'message', 'idempotencyKey', 'deliveryStatus', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'agentId', 'agentName', 'taskId', 'project',
+                           'eventType', 'title', 'message', 'idempotencyKey',
+                           'deliveryStatus', 'createdAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidAgentEvent(incoming());
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(eventId);
+      }
+
+      match /notifications/{notificationId} {
+        allow get, list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(notificationId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'message', 'category', 'isRead', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'taskId', 'eventId', 'agentName', 'project',
+                           'title', 'message', 'category', 'isRead', 'readAt', 'createdAt'
+                         ]) &&
+                         incoming().isRead == false &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidAppNotification(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(notificationId) &&
+                         isValidAppNotification(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().category == existing().category &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['isRead', 'readAt']);
+
+        allow delete: if isOwner(userId) && isValidId(notificationId);
+      }
+    }
+  }
+}

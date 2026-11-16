@@ -1,0 +1,6 @@
+{
+  "name": "Notifyme",
+  "description": "Centralized MCP notification and task-monitoring hub for AI coding agents like Google Antigravity.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

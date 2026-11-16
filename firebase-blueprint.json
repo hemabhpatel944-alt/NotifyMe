@@ -1,0 +1,210 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile and notification preferences",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "Display name" },
+        "photoUrl": { "type": "string", "description": "Optional avatar URL" },
+        "themeMode": { "type": "string", "enum": ["dark", "light"] },
+        "pushEnabled": { "type": "boolean" },
+        "notifyOnCompleted": { "type": "boolean" },
+        "notifyOnFailed": { "type": "boolean" },
+        "notifyOnProgress": { "type": "boolean" },
+        "notifyOnInputRequired": { "type": "boolean" },
+        "notifyOnAgentConnected": { "type": "boolean" },
+        "notifyOnAgentDisconnected": { "type": "boolean" },
+        "notifyOnSystemAlerts": { "type": "boolean" },
+        "fcmTokenStatus": { "type": "string", "description": "FCM integration readiness status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "userId",
+        "email",
+        "displayName",
+        "themeMode",
+        "pushEnabled",
+        "notifyOnCompleted",
+        "notifyOnFailed",
+        "notifyOnProgress",
+        "notifyOnInputRequired",
+        "notifyOnAgentConnected",
+        "notifyOnAgentDisconnected",
+        "notifyOnSystemAlerts",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Agent": {
+      "title": "Agent",
+      "description": "Registered AI coding agent connected via MCP",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["antigravity", "claude_code", "codex", "cursor", "custom"] },
+        "status": { "type": "string", "enum": ["connected", "disconnected", "revoked"] },
+        "totalTasks": { "type": "integer" },
+        "completedTasks": { "type": "integer" },
+        "failedTasks": { "type": "integer" },
+        "credentialPrefix": { "type": "string", "description": "Redacted token prefix for display" },
+        "credentialHash": { "type": "string", "description": "SHA-256 hex digest of agent bearer token" },
+        "metadataSummary": { "type": "string" },
+        "lastSeenAt": { "type": "string", "format": "date-time" },
+        "credentialRotatedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "name",
+        "type",
+        "status",
+        "totalTasks",
+        "completedTasks",
+        "failedTasks",
+        "credentialPrefix",
+        "credentialHash",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AgentTask": {
+      "title": "AgentTask",
+      "description": "Task monitored across AI agent lifecycle",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "agentId": { "type": "string" },
+        "agentName": { "type": "string" },
+        "title": { "type": "string" },
+        "project": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "completed", "failed", "waiting_for_input", "cancelled"]
+        },
+        "progress": { "type": "integer" },
+        "summary": { "type": "string" },
+        "error": { "type": "string" },
+        "pendingQuestion": { "type": "string" },
+        "pendingContext": { "type": "string" },
+        "pendingOptions": { "type": "array" },
+        "userResponse": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "agentId",
+        "agentName",
+        "title",
+        "project",
+        "status",
+        "progress",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AgentEvent": {
+      "title": "AgentEvent",
+      "description": "Immutable chronological MCP and system activity event",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "agentId": { "type": "string" },
+        "agentName": { "type": "string" },
+        "taskId": { "type": "string" },
+        "project": { "type": "string" },
+        "eventType": {
+          "type": "string",
+          "enum": [
+            "task_started",
+            "task_progress",
+            "task_completed",
+            "task_failed",
+            "user_input_requested",
+            "user_input_responded",
+            "agent_connected",
+            "agent_disconnected",
+            "agent_registered",
+            "credential_rotated",
+            "notification_dispatched"
+          ]
+        },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "deliveryStatus": { "type": "string", "enum": ["delivered", "suppressed", "failed", "recorded"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "agentId",
+        "agentName",
+        "eventType",
+        "title",
+        "message",
+        "idempotencyKey",
+        "deliveryStatus",
+        "createdAt"
+      ]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "Notification center item generated by agent events",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "taskId": { "type": "string" },
+        "eventId": { "type": "string" },
+        "agentName": { "type": "string" },
+        "project": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": [
+            "task_completed",
+            "task_failed",
+            "task_progress",
+            "user_input_required",
+            "agent_connected",
+            "agent_disconnected",
+            "system_alert"
+          ]
+        },
+        "isRead": { "type": "boolean" },
+        "readAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "category", "isRead", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Authenticated user profile and notification preferences"
+    },
+    "/users/{userId}/agents/{agentId}": {
+      "schema": { "$ref": "#/entities/Agent" },
+      "description": "User's registered AI coding agents"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/AgentTask" },
+      "description": "Monitored AI agent tasks"
+    },
+    "/users/{userId}/events/{eventId}": {
+      "schema": { "$ref": "#/entities/AgentEvent" },
+      "description": "Append-only chronological agent and MCP events"
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/AppNotification" },
+      "description": "In-app and push notification records"
+    }
+  }
+}
